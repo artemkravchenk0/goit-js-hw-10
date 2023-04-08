@@ -1,18 +1,27 @@
 import { Notify } from 'notiflix';
 import './css/styles.css';
+import fetchCountries from './js/fetch-countries';
+import refs from './js/refs';
 const debounce = require('lodash.debounce');
 const DEBOUNCE_DELAY = 300;
-const BASE_URL = 'https://restcountries.com/v3.1/name/'
- 
 
-const handleKeyEvent = async event => {
+
+const handleKeyEvent = event => {
     const countryName = event.target.value.trim()
 
     if (countryName === '') {
+        resetHtml()
         return;
     }
 
-    fetchCountries(countryName).then(countryList => {
+    fetchCountries(countryName)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(response.status);
+        }
+        return response.json();
+      })
+      .then(countryList => {
 
         if (!countryList) {
             return;
@@ -26,66 +35,50 @@ const handleKeyEvent = async event => {
             countryListHtml = countryList.map(country => {
                 return `<li>
                     <span>
-                        <img src="${country.flag}">
+                        <img src="${country.flags.svg}">
                     </span>
                     <span>
-                        ${country.name}
+                        ${country.name.common}
                     </span>
                 </li>`
             }).join('')
         }
-    
-    
+
+
         let countryInfoTemplate = ''
         if (countryList.length === 1) {
-            
+
             const country = countryList[0]
-    
+
             countryInfoTemplate = `<div>
                 <span>Capital:</span>
-                <span>${country.capital}</span>
+                <span>${country.capital.join(', ')}</span>
             </div>
             <div>
                 <span>Languages:</span>
-                <span>${country.languages}</span>
+                <span>${Object.values(country.languages).join(', ')}</span>
             </div>
             <div>
                 <span>Population:</span>
                 <span>${country.population}</span>
             </div>`
         }
-    
-        document.querySelector('.country-info').innerHTML = countryInfoTemplate
-        document.querySelector('.country-list').innerHTML = countryListHtml
-    })    
+
+        refs.countryInfoEl.innerHTML = countryInfoTemplate
+        refs.countryListEl.innerHTML = countryListHtml
+    }).catch(error => {
+      Notify.failure('Oops, there is no country with that name')
+      resetHtml()
+    })
 }
 
+const resetHtml = () => {
+  refs.countryInfoEl.innerHTML = ''
+  refs.countryListEl.innerHTML = ''
+}
 
 document.getElementById('search-box').addEventListener('keyup', debounce(handleKeyEvent, DEBOUNCE_DELAY))
 
 
-const fetchCountries = async (countryName) => {
 
-    const url = `${BASE_URL}${countryName}?fields=name,capital,population,flags,languages`;
-
-    return fetch(url)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(response.status);
-              }
-              return response.json();
-        })
-        .then(countriesJson => {
-            return countriesJson.map((country) => ({
-                name: country.name.common,
-                flag: country.flags.svg,
-                population: country.population,
-                languages: Object.values(country.languages).join(', '),
-                capital: country.capital.join(', ')
-            }));
-        })
-        .catch(error => {
-            Notify.failure('Oops, there is no country with that name')
-        });
-}
 
